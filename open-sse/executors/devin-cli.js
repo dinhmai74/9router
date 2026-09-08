@@ -24,6 +24,7 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { BaseExecutor } from "./base.js";
+import { resolveWorkspaceCwd } from "../utils/resolveWorkspaceCwd.js";
 
 // ─── Binary discovery ────────────────────────────────────────────────────────
 
@@ -191,62 +192,6 @@ function extractClientToolResults(messages) {
   return results;
 }
 
-// Resolve workspace cwd from client request (Codex/CLI env context, body fields).
-// Prefer an absolute existing path so agent file tools hit the user's project
-// instead of os.tmpdir() (which made relative create/delete inconsistent).
-function resolveWorkspaceCwd(body) {
-  const candidates = [];
-  const push = (v) => {
-    if (typeof v === "string" && v.trim()) candidates.push(v.trim());
-  };
-  push(body?.cwd);
-  push(body?.working_directory);
-  push(body?.workdir);
-  push(body?.workspace);
-  push(body?.metadata?.cwd);
-  push(body?.metadata?.working_directory);
-
-  const scanText = (text) => {
-    if (typeof text !== "string") return;
-    for (const m of text.matchAll(/<cwd>\s*([^<]+?)\s*<\/cwd>/gi)) push(m[1]);
-  };
-  const scanMessages = (msgs) => {
-    if (!Array.isArray(msgs)) return;
-    for (const msg of msgs) {
-      if (!msg) continue;
-      if (typeof msg.content === "string") scanText(msg.content);
-      else if (Array.isArray(msg.content)) {
-        for (const p of msg.content) {
-          if (typeof p === "string") scanText(p);
-          else if (p && typeof p === "object") {
-            scanText(p.text);
-            scanText(p.input_text);
-            scanText(p.content);
-          }
-        }
-      }
-      // Responses API input items
-      if (typeof msg === "string") scanText(msg);
-      if (msg.type === "message" && Array.isArray(msg.content)) {
-        for (const p of msg.content) scanText(p?.text || p?.input_text);
-      }
-    }
-  };
-  scanMessages(body?.messages);
-  scanMessages(body?.input);
-
-  for (const c of candidates) {
-    try {
-      if (path.isAbsolute(c) && fs.existsSync(c) && fs.statSync(c).isDirectory()) {
-        return c;
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-  return os.tmpdir();
-}
-
 // ─── Multi-turn message → single prompt builder ─────────────────────────────
 
 function buildPromptText(messages) {
@@ -327,7 +272,7 @@ export class DevinCliExecutor extends BaseExecutor {
         ? b.input
         : [];
     const promptText = buildPromptText(messages);
-    const workspaceCwd = resolveWorkspaceCwd(b);
+    const workspaceCwd = resolveWorkspaceCwd(b) ?? os.tmpdir();
     const devinBin = resolveDevinBin();
 
     log?.info?.(

@@ -20,7 +20,9 @@ const nextConfig = {
   // letter). That throw happens at module scope, so every consumer of `open` dies on
   // import — including xAI/Grok token refresh, which loads the OAuth service that imports
   // it. Keeping it external preserves the real `import.meta.url` at runtime.
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open"],
+  // `@cursor/sdk` must stay external: it lazy-loads platform binaries and ships
+  // `.d.ts.map` sidecars that webpack cannot parse when traced through open-sse.
+  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open", "@cursor/sdk"],
   turbopack: {
     root: tracingRoot
   },

@@ -11,11 +11,6 @@ import {
   encodeMcpResultError,
   encodeMcpResultToolNotFound,
 } from "../../open-sse/utils/cursorProtobuf.js";
-import {
-  isAgentCapableRequest,
-  buildAgentRunFrame,
-} from "../../open-sse/executors/cursor.js";
-
 // AgentService (agent.v1) codec tests — validate the production implementation
 // in cursorProtobuf.js + the executor's frame builders. Pure round-trip, no network.
 // Field numbers verified against Cursor's agent.proto (extracted via @oh-my-pi).
@@ -193,90 +188,6 @@ describe("Cursor AgentService codec (cursorProtobuf.js)", () => {
       expect(msg.has(5)).toBe(true);
       const tnf = decodeMessage(msg.get(5)[0].value);
       expect(Buffer.from(tnf.get(1)[0].value).toString("utf8")).toBe("missing_tool");
-    });
-  });
-});
-
-describe("Cursor AgentService executor helpers (cursor.js)", () => {
-  describe("isAgentCapableRequest", () => {
-    it("accepts plain text content", () => {
-      expect(isAgentCapableRequest({ messages: [{ role: "user", content: "hi" }] })).toBe(true);
-    });
-
-    it("accepts array text content", () => {
-      expect(isAgentCapableRequest({ messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }] })).toBe(true);
-    });
-
-    it("accepts request with tools declared", () => {
-      expect(isAgentCapableRequest({ messages: [{ role: "user", content: "hi" }], tools: [{ function: { name: "t" } }] })).toBe(true);
-    });
-
-    it("accepts history with assistant tool_calls + tool results", () => {
-      expect(isAgentCapableRequest({
-        messages: [
-          { role: "user", content: "weather?" },
-          { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "get_weather", arguments: "{}" } }] },
-          { role: "tool", tool_call_id: "c1", content: "sunny" },
-          { role: "user", content: "thanks" },
-        ],
-      })).toBe(true);
-    });
-
-    it("rejects non-text (image) content", () => {
-      expect(isAgentCapableRequest({ messages: [{ role: "user", content: [{ type: "image_url" }] }] })).toBe(false);
-    });
-
-    it("rejects missing messages", () => {
-      expect(isAgentCapableRequest({})).toBe(false);
-      expect(isAgentCapableRequest(null)).toBe(false);
-    });
-  });
-
-  describe("buildAgentRunFrame", () => {
-    // buildAgentRunFrame returns a wrapped Connect-RPC frame (5-byte header + AgentClientMessage).
-    const unwrap = (frame) => frame.subarray(5);
-
-    it("encodes a text-only run request with system + model", () => {
-      const frame = unwrap(buildAgentRunFrame(
-        [{ role: "system", content: "be brief" }, { role: "user", content: "hi" }],
-        "gpt-5.2",
-      ));
-      const clientMsg = decodeMessage(frame);
-      expect(clientMsg.has(1)).toBe(true); // run_request
-      const run = decodeMessage(clientMsg.get(1)[0].value);
-      expect(run.has(2)).toBe(true); // action
-      expect(run.has(9)).toBe(true); // requested_model
-    });
-
-    it("encodes mcp_tools (field 4) when tools are provided", () => {
-      const tools = [{ function: { name: "get_weather", description: "weather", parameters: { type: "object", properties: { city: { type: "string" } } } } }];
-      const frame = unwrap(buildAgentRunFrame([{ role: "user", content: "weather?" }], "gpt-5.2", tools));
-      const run = decodeMessage(decodeMessage(frame).get(1)[0].value);
-      expect(run.has(4)).toBe(true); // mcp_tools
-      const mcpTools = decodeMessage(run.get(4)[0].value);
-      expect(mcpTools.get(1).length).toBe(1);
-    });
-
-    it("omits mcp_tools when no tools provided", () => {
-      const frame = unwrap(buildAgentRunFrame([{ role: "user", content: "hi" }], "gpt-5.2", []));
-      const run = decodeMessage(decodeMessage(frame).get(1)[0].value);
-      expect(run.has(4)).toBe(false);
-    });
-
-    it("encodes conversation_history from prior turns including tool calls/results", () => {
-      const messages = [
-        { role: "user", content: "weather in Tokyo?" },
-        { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "get_weather", arguments: '{"city":"Tokyo"}' } }] },
-        { role: "tool", tool_call_id: "c1", content: "18C cloudy" },
-        { role: "user", content: "thanks" },
-      ];
-      const frame = unwrap(buildAgentRunFrame(messages, "gpt-5.2", []));
-      const run = decodeMessage(decodeMessage(frame).get(1)[0].value);
-      const action = decodeMessage(run.get(2)[0].value);
-      const userAction = decodeMessage(action.get(1)[0].value);
-      expect(userAction.has(7)).toBe(true); // conversation_history (field 7)
-      const history = decodeMessage(userAction.get(7)[0].value);
-      expect(history.get(1).length).toBeGreaterThanOrEqual(2); // prior turns
     });
   });
 });

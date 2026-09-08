@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearCursorModelCache,
+  normalizeCursorCatalogModels,
   parseCursorUsableModels,
   resolveCursorModels,
 } from "../../open-sse/services/cursorModels.js";
 
-const originalFetch = global.fetch;
+const CURSOR_SDK = "@cursor/sdk";
 
 function varint(value) {
   const bytes = [];
@@ -43,11 +44,13 @@ function model(id, name) {
 describe("Cursor live model catalog", () => {
   beforeEach(() => {
     clearCursorModelCache();
+    vi.resetModules();
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
     clearCursorModelCache();
+    vi.doUnmock(CURSOR_SDK);
+    vi.restoreAllMocks();
   });
 
   it("decodes the GetUsableModels protobuf response", () => {
@@ -63,41 +66,91 @@ describe("Cursor live model catalog", () => {
     ]);
   });
 
-  it("fetches the account-specific catalog and caches it", async () => {
-    const payload = concat(model("claude-4.6-opus", "Claude 4.6 Opus"));
-    global.fetch = vi.fn().mockResolvedValue(new Response(payload, { status: 200 }));
-    const credentials = {
-      accessToken: "cursor-token",
-      providerSpecificData: { machineId: "machine-id" },
-    };
-
-    await expect(resolveCursorModels(credentials)).resolves.toEqual({
-      models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }],
-    });
-    await expect(resolveCursorModels(credentials)).resolves.toEqual({
-      models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }],
-    });
-
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://agent.api5.cursor.sh/agent.v1.AgentService/GetUsableModels",
-      expect.objectContaining({
-        method: "POST",
-        body: expect.any(Uint8Array),
-        headers: expect.objectContaining({
-          "content-type": "application/proto",
-          accept: "application/proto",
-        }),
-      }),
-    );
+  it("normalizes SDK model list entries", () => {
+    expect(normalizeCursorCatalogModels([
+      { id: "gpt-5.2", displayName: "GPT 5.2" },
+      { id: "default", name: "Auto" },
+      { displayName: "Missing id" },
+    ])).toEqual([
+      { id: "gpt-5.2", name: "GPT 5.2" },
+      { id: "default", name: "Auto" },
+    ]);
   });
 
-  it("fails open when the Cursor catalog request fails", async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response("no", { status: 403 }));
+  it("Should expose slow and fast picker entries for SDK models with a fast parameter", () => {
+    expect(normalizeCursorCatalogModels([
+      {
+        id: "composer-2.5",
+        displayName: "Composer 2.5",
+        parameters: [{ id: "fast", values: [{ value: "false" }, { value: "true" }] }],
+      },
+      {
+        id: "grok-4.6",
+        displayName: "Cursor Grok 4.6",
+        parameters: [
+          { id: "effort", values: [{ value: "high" }] },
+          { id: "fast", values: [{ value: "false" }, { value: "true" }] },
+        ],
+      },
+      {
+        id: "gpt-5.6-sol",
+        displayName: "GPT-5.6 Sol",
+        parameters: [{ id: "reasoning", values: [{ value: "low" }] }],
+      },
+    ])).toEqual([
+      { id: "composer-2.5", name: "Composer 2.5 (Slow)" },
+      { id: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+      { id: "grok-4.6", name: "Cursor Grok 4.6 (Slow)" },
+      { id: "grok-4.6-fast", name: "Cursor Grok 4.6 Fast" },
+      { id: "gpt-5.6-sol", name: "GPT-5.6 Sol" },
+    ]);
+  });
 
-    await expect(resolveCursorModels({
-      accessToken: "cursor-token",
-      providerSpecificData: { machineId: "machine-id" },
+  it("Should accept SDK model lists returned as arrays", async () => {
+    const list = vi.fn().mockResolvedValue([
+      { id: "composer-2.5", displayName: "Composer 2.5" },
+    ]);
+    vi.doMock(CURSOR_SDK, () => ({
+      Cursor: { models: { list } },
+    }));
+
+    const { resolveCursorModels: resolveWithSdk } = await import("../../open-sse/services/cursorModels.js");
+
+    await expect(resolveWithSdk({
+      apiKey: "cursor-sdk-key",
+    })).resolves.toEqual({
+      models: [{ id: "composer-2.5", name: "Composer 2.5" }],
+    });
+  });
+
+  it("Should fetch models via Cursor SDK when only an API key is configured", async () => {
+    const list = vi.fn().mockResolvedValue({
+      items: [{ id: "gpt-5.2", displayName: "GPT 5.2" }],
+    });
+    vi.doMock(CURSOR_SDK, () => ({
+      Cursor: { models: { list } },
+    }));
+
+    const { resolveCursorModels: resolveWithSdk } = await import("../../open-sse/services/cursorModels.js");
+
+    await expect(resolveWithSdk({
+      apiKey: "cursor-sdk-key",
+    })).resolves.toEqual({
+      models: [{ id: "gpt-5.2", name: "GPT 5.2" }],
+    });
+    expect(list).toHaveBeenCalledWith({ apiKey: "cursor-sdk-key" });
+  });
+
+  it("Should fail open when the Cursor SDK model list request fails", async () => {
+    const list = vi.fn().mockRejectedValue(new Error("invalid api key"));
+    vi.doMock(CURSOR_SDK, () => ({
+      Cursor: { models: { list } },
+    }));
+
+    const { resolveCursorModels: resolveWithSdk } = await import("../../open-sse/services/cursorModels.js");
+
+    await expect(resolveWithSdk({
+      apiKey: "bad-key",
     })).resolves.toBeNull();
   });
 });

@@ -456,7 +456,7 @@ Specialized executors:
 - `github`
 - `kiro`
 - `codex`
-- `cursor`
+- `cursor` (dual upstream: `@cursor/sdk` for plain-text agent turns; Cursor ChatService protobuf for tool-call conversations)
 
 Default executor path:
 
@@ -480,6 +480,19 @@ Target formats include:
 - Cursor
 
 Translations are selected dynamically based on source payload shape and provider target format.
+
+## Cursor provider routing
+
+`open-sse/executors/cursor.js` picks the upstream by conversation shape:
+
+| Request shape | Upstream | Auth |
+|---|---|---|
+| Plain text only (`isAgentTextRequest`) | `@cursor/sdk` via `open-sse/services/cursorAgentSdk.js` | Cursor API key (`credentials.apiKey`, `providerSpecificData.sdkApiKey`, or `CURSOR_API_KEY`). IDE OAuth (`accessToken` + `machineId`) is not accepted on this path. |
+| Tool-call or tool-result messages | `api2.cursor.sh` ChatService protobuf (`StreamUnifiedChatWithTools`) | IDE OAuth (`accessToken` + `machineId`) via `buildCursorHeaders` |
+
+Live model catalog (`GetUsableModels` on `agent.api5.cursor.sh`) stays in `open-sse/services/cursorModels.js` and is unchanged by the SDK migration.
+
+SDK runtime defaults to cloud no-repo (`cloud: { repos: [] }`). Override with `providerSpecificData.sdkRuntime: "local"` when a gateway host can run the local agent loop.
 
 ## Failure Modes and Resilience
 

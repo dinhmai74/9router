@@ -151,8 +151,12 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const clientTool = detectClientTool(clientRawRequest?.headers || {}, body);
   const passthrough = isNativePassthrough(clientTool, provider);
 
-  // Expose raw client headers to translators/executors for session-id resolution
-  if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
+  // Expose raw client headers and the untranslated body for executors that need
+  // client workspace metadata stripped by translation (e.g. Cursor SDK local cwd).
+  if (credentials) {
+    credentials.rawHeaders = clientRawRequest?.headers || {};
+    credentials.clientBody = body;
+  }
 
   // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
   if (!passthrough) {

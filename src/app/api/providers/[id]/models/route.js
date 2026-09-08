@@ -277,6 +277,7 @@ const PROVIDER_MODELS_CONFIG = {
     customResolver: async (connection) => {
       const result = await resolveCursorModels({
         accessToken: connection.accessToken,
+        apiKey: connection.apiKey,
         providerSpecificData: connection.providerSpecificData || {},
       }, { forceRefresh: true, log: console });
       if (result?.models?.length) return { models: result.models };

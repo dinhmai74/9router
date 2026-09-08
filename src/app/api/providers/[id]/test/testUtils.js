@@ -815,6 +815,16 @@ case "llm7": {
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
       }
+      case "cursor": {
+        if (!connection.apiKey?.trim()) return { valid: false, error: "No API key" };
+        try {
+          const { Cursor } = await import("@cursor/sdk");
+          await Cursor.models.list({ apiKey: connection.apiKey.trim() });
+          return { valid: true, error: null };
+        } catch (err) {
+          return { valid: false, error: err?.message || "Invalid Cursor API key" };
+        }
+      }
       default:
         return { valid: false, error: "Provider test not supported" };
     }

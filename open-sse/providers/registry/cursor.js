@@ -10,9 +10,12 @@ export default {
     website: "https://cursor.com",
     notice: {
       signupUrl: "https://cursor.com",
+      apiKeyUrl: "https://cursor.com/dashboard?tab=settings",
+      text: "Requires a Cursor API key from cursor.com/dashboard. All requests use @cursor/sdk.",
     },
   },
-  category: "oauth",
+  category: "apikey",
+  authModes: ["apikey"],
   transport: {
     baseUrl: "https://api2.cursor.sh",
     chatPath: "/aiserver.v1.ChatService/StreamUnifiedChatWithTools",
@@ -53,6 +56,15 @@ export default {
     dbKeys: {
       accessToken: "cursorAuth/accessToken",
       machineId: "storage.serviceMachineId",
+    },
+    sdk: {
+      packageName: "@cursor/sdk",
+      minNodeVersion: "22.13.0",
+      apiKeyEnvVar: "CURSOR_API_KEY",
+      streamApi: "run.stream()",
+      auth: "apiKey",
+      ideOAuthUnsupported: true,
+      defaultRuntime: "cloud",
     },
   },
 };

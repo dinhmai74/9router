@@ -13,10 +13,22 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const isOllamaLocal = provider === "ollama-local";
   const isCookie = authType === "cookie";
   const isXaiApiKey = provider === "xai" && !isCookie;
-  const credentialLabel = isCookie ? "Cookie Value" : provider === "qoder" ? "Personal Access Token (PAT)" : "API Key";
+  const credentialLabel = isCookie
+    ? "Cookie Value"
+    : provider === "cursor"
+      ? "Cursor SDK API Key"
+      : provider === "qoder"
+        ? "Personal Access Token (PAT)"
+        : "API Key";
   const credentialPlaceholder = isCookie
     ? (provider === "grok-web" ? "sso=xxxxx... or just the raw value" : "eyJhbGciOi...")
-    : (isXaiApiKey ? "xai-..." : provider === "qoder" ? "pt-..." : "");
+    : (provider === "cursor"
+      ? "From Cursor Dashboard → API Keys"
+      : isXaiApiKey
+        ? "xai-..."
+        : provider === "qoder"
+          ? "pt-..."
+          : "");
 
   const isAzure = provider === "azure";
   const isCloudflareAi = provider === "cloudflare-ai";

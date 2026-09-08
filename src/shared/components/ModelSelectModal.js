@@ -20,6 +20,21 @@ const PROVIDER_ORDER = [
 // Providers that need no auth — always show in model selector
 const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter(id => FREE_PROVIDERS[id].noAuth);
 
+function mergeCursorCatalogModels(staticModels, liveModels) {
+  const byId = new Map(staticModels.map((model) => [model.id, model]));
+  for (const model of liveModels) {
+    if (!model?.id) continue;
+    const existing = byId.get(model.id);
+    byId.set(model.id, {
+      ...existing,
+      ...model,
+      id: model.id,
+      name: model.name || existing?.name || model.id,
+    });
+  }
+  return [...byId.values()];
+}
+
 export default function ModelSelectModal({
   isOpen,
   onClose,
@@ -72,7 +87,13 @@ export default function ModelSelectModal({
       const response = await fetch(`/api/providers/${connectionId}/models`, { cache: "no-store" });
       if (!response.ok) return [];
       const data = await response.json();
-      return Array.isArray(data.models) ? data.models : [];
+      if (!Array.isArray(data.models)) return [];
+      return data.models.flatMap((model) => {
+        const id = typeof model?.id === "string" ? model.id.trim() : "";
+        if (!id) return [];
+        const name = (model.name || model.displayName || id).trim();
+        return [{ id, name: name || id }];
+      });
     }))
       .then((modelLists) => {
         if (cancelled) return;
@@ -323,8 +344,8 @@ export default function ModelSelectModal({
           hasModels: mergedModels.length > 0,
         };
       } else {
-        const hardcodedModels = providerId === "cursor" && cursorModels.length > 0
-          ? cursorModels
+        const hardcodedModels = providerId === "cursor"
+          ? mergeCursorCatalogModels(getModelsByProviderId(providerId), cursorModels)
           : getModelsByProviderId(providerId);
         const hardcodedIds = new Set(hardcodedModels.map((m) => m.id));
 
@@ -389,7 +410,14 @@ export default function ModelSelectModal({
         ...(disabledModels[providerId] || []),
       ]);
       if (disabledIds.size === 0) return;
-      group.models = group.models.filter((m) => !disabledIds.has(m.id));
+      const customIdSet = new Set(
+        customModels
+          .filter((model) => model.providerAlias === aliasKey || model.providerAlias === providerId)
+          .map((model) => model.id),
+      );
+      group.models = group.models.filter(
+        (model) => model.isCustom || customIdSet.has(model.id) || !disabledIds.has(model.id),
+      );
       if (group.models.length === 0) delete groups[providerId];
     });
 

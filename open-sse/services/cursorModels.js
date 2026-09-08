@@ -1,14 +1,15 @@
 /**
  * Cursor live model catalog fetcher.
  *
- * Cursor exposes the account-specific model picker through the AgentService
- * `GetUsableModels` Connect RPC. Unlike the static provider registry, this
- * includes models newly enabled for the account and omits unavailable ones.
+ * SDK API keys use `Cursor.models.list()`. IDE OAuth uses AgentService
+ * `GetUsableModels` on agent.api5.cursor.sh. Both return account-specific
+ * catalogs; callers fall back to the static registry when live fetch fails.
  */
 
 import crypto from "crypto";
 import http2 from "http2";
 import { PROVIDER_OAUTH } from "../providers/index.js";
+import { resolveCursorSdkApiKey } from "./cursorSdkAuth.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
 import { decodeMessage } from "../utils/cursorProtobuf.js";
 
@@ -32,12 +33,59 @@ function getCursorModelsUrl() {
 }
 
 function cacheKey(credentials) {
+  const apiKey = resolveCursorSdkApiKey(credentials);
   const seed = [
+    apiKey ? `sdk:${apiKey}` : null,
     credentials?.providerSpecificData?.machineId,
     credentials?.accessToken,
   ].filter(Boolean).join(":");
   if (!seed) return "cursor-anonymous";
   return crypto.createHash("sha256").update(`cursor:${seed}`).digest("hex");
+}
+
+function modelHasFastParameter(model) {
+  return (model?.parameters || []).some((param) => param?.id === "fast");
+}
+
+export function normalizeCursorCatalogModels(models) {
+  if (!Array.isArray(models)) return [];
+  const seen = new Set();
+  const normalized = [];
+
+  const pushModel = (id, name) => {
+    const trimmedId = typeof id === "string" ? id.trim() : "";
+    if (!trimmedId || seen.has(trimmedId)) return;
+    seen.add(trimmedId);
+    const trimmedName = (typeof name === "string" ? name : trimmedId).trim();
+    normalized.push({ id: trimmedId, name: trimmedName || trimmedId });
+  };
+
+  for (const model of models) {
+    const id = typeof model?.id === "string" ? model.id.trim() : "";
+    if (!id) continue;
+
+    const baseName = (
+      (typeof model?.name === "string" && model.name)
+      || (typeof model?.displayName === "string" && model.displayName)
+      || id
+    ).trim();
+
+    if (modelHasFastParameter(model)) {
+      pushModel(id, `${baseName} (Slow)`);
+      pushModel(`${id}-fast`, `${baseName} Fast`);
+      continue;
+    }
+
+    pushModel(id, baseName);
+  }
+
+  return normalized;
+}
+
+function extractCursorSdkModelItems(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  return [];
 }
 
 function firstString(fields, fieldNumber) {
@@ -154,13 +202,45 @@ async function fetchCursorCatalog(credentials, signal) {
   return parseCursorUsableModels(new Uint8Array(response.body));
 }
 
+async function fetchCursorSdkCatalog(credentials) {
+  const apiKey = resolveCursorSdkApiKey(credentials);
+  if (!apiKey) return null;
+
+  const { Cursor } = await import("@cursor/sdk");
+  const response = await Cursor.models.list({ apiKey });
+  return normalizeCursorCatalogModels(extractCursorSdkModelItems(response));
+}
+
+async function fetchLiveCursorCatalog(credentials, signal, log) {
+  const apiKey = resolveCursorSdkApiKey(credentials);
+  if (apiKey) {
+    try {
+      const models = await fetchCursorSdkCatalog(credentials);
+      if (models?.length) return models;
+    } catch (error) {
+      log?.warn?.("CURSOR_MODELS", `Cursor SDK model list failed: ${error?.message || error}`);
+    }
+  }
+
+  const accessToken = credentials?.accessToken;
+  const machineId = credentials?.providerSpecificData?.machineId;
+  if (!accessToken || !machineId) return null;
+
+  return fetchCursorCatalog(credentials, signal);
+}
+
 /**
  * Resolve the live Cursor catalog for the authenticated account.
  * Returns null on any failure so callers can fall back to static models.
  */
 export async function resolveCursorModels(credentials, options = {}) {
-  if (!credentials?.accessToken || !credentials?.providerSpecificData?.machineId) {
-    options.log?.debug?.("CURSOR_MODELS", "No Cursor access token or machine ID; skipping live fetch");
+  const apiKey = resolveCursorSdkApiKey(credentials);
+  const hasIdeOAuth = Boolean(
+    credentials?.accessToken?.trim()
+    && credentials?.providerSpecificData?.machineId?.trim(),
+  );
+  if (!apiKey && !hasIdeOAuth) {
+    options.log?.debug?.("CURSOR_MODELS", "No Cursor SDK API key or IDE OAuth credentials; skipping live fetch");
     return null;
   }
 
@@ -172,7 +252,7 @@ export async function resolveCursorModels(credentials, options = {}) {
   }
 
   try {
-    const models = await fetchCursorCatalog(credentials, options.signal);
+    const models = await fetchLiveCursorCatalog(credentials, options.signal, options.log);
     if (!models?.length) return null;
     catalogCache.set(key, { expiresAt: now + CACHE_TTL_MS, models });
     return { models };

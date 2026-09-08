@@ -205,6 +205,19 @@ export async function POST(request) {
         });
       }
 
+      if (provider === "cursor") {
+        try {
+          const { Cursor } = await import("@cursor/sdk");
+          await Cursor.models.list({ apiKey });
+          return NextResponse.json({ valid: true });
+        } catch (err) {
+          return NextResponse.json({
+            valid: false,
+            error: err?.message || "Invalid Cursor API key",
+          });
+        }
+      }
+
       if (provider === "azure") {
         const { providerSpecificData } = body;
         const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/$/, "");
