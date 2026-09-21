@@ -37,7 +37,8 @@ function mergeCursorCatalogModels(staticModels, liveModels) {
 
 // Providers with per-account live catalogs via /api/providers/[id]/models.
 // Static registry stays as fallback when live fetch fails or is empty.
-const LIVE_CATALOG_PROVIDERS = ["cursor", "cline", "clinepass"];
+// Zed is also passthroughModels (empty static catalog) - live path must win in the picker.
+const LIVE_CATALOG_PROVIDERS = ["cursor", "cline", "clinepass", "zed"];
 
 // Fetch a provider's account-scoped catalog for every active connection and merge
 // the results. Entries collapse by model id on purpose: two connections of the
@@ -117,8 +118,7 @@ export default function ModelSelectModal({
   const [providerNodes, setProviderNodes] = useState([]);
   const [customModels, setCustomModels] = useState([]);
   const [disabledModels, setDisabledModels] = useState({});
-  // Cursor and Cline expose the usable catalog per account, so the static catalog is
-  // kept only as a fallback: it goes stale quickly and entitlements differ per account.
+  // Live-catalog providers expose the usable list per account; static is fallback only.
   // Single map driven by LIVE_CATALOG_PROVIDERS so the constant cannot drift
   // from the memos below; per-provider arrays stay referentially stable unless
   // activeProviders itself changes.
@@ -132,10 +132,18 @@ export default function ModelSelectModal({
   const cursorConnectionIds = liveConnectionIdsByProvider.cursor;
   const clineConnectionIds = liveConnectionIdsByProvider.cline;
   const clinepassConnectionIds = liveConnectionIdsByProvider.clinepass;
+  const zedConnectionIds = liveConnectionIdsByProvider.zed;
 
   const cursorModels = useLiveProviderModels(isOpen, cursorConnectionIds, "Cursor");
   const clineModels = useLiveProviderModels(isOpen, clineConnectionIds, "Cline");
   const clinepassModels = useLiveProviderModels(isOpen, clinepassConnectionIds, "ClinePass");
+  const zedModels = useLiveProviderModels(isOpen, zedConnectionIds, "Zed");
+  const liveModelsByProvider = {
+    cursor: cursorModels,
+    cline: clineModels,
+    clinepass: clinepassModels,
+    zed: zedModels,
+  };
 
   const fetchCombos = async () => {
     try {
@@ -261,7 +269,9 @@ export default function ModelSelectModal({
         return;
       }
 
-      if (providerInfo.passthroughModels) {
+      // Live-catalog providers (incl. passthrough like zed) use the merge path below
+      // so the picker shows /api/providers/.../models instead of empty static lists.
+      if (providerInfo.passthroughModels && !LIVE_CATALOG_PROVIDERS.includes(providerId)) {
         const aliasModels = Object.entries(modelAliases)
           .filter(([, fullModel]) => fullModel.startsWith(`${alias}/`))
           .map(([aliasName, fullModel]) => ({
@@ -368,7 +378,7 @@ export default function ModelSelectModal({
           hasModels: mergedModels.length > 0,
         };
       } else {
-        const liveModels = providerId === "cursor" ? cursorModels : providerId === "cline" ? clineModels : providerId === "clinepass" ? clinepassModels : [];
+        const liveModels = liveModelsByProvider[providerId] || [];
         const hardcodedModels = providerId === "cursor"
           ? mergeCursorCatalogModels(getModelsByProviderId(providerId), cursorModels)
           : liveModels.length > 0
@@ -449,7 +459,7 @@ export default function ModelSelectModal({
     });
 
     return groups;
-  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels]);
+  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels, zedModels]);
 
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
