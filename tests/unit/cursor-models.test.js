@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearCursorModelCache,
+  mergeCursorCatalogWithStatic,
   normalizeCursorCatalogModels,
   parseCursorUsableModels,
   resolveCursorModels,
@@ -116,11 +117,48 @@ describe("Cursor live model catalog", () => {
 
     const { resolveCursorModels: resolveWithSdk } = await import("../../open-sse/services/cursorModels.js");
 
-    await expect(resolveWithSdk({
+    const result = await resolveWithSdk({
       apiKey: "cursor-sdk-key",
-    })).resolves.toEqual({
-      models: [{ id: "composer-2.5", name: "Composer 2.5" }],
     });
+    expect(result?.models).toEqual(expect.arrayContaining([
+      { id: "composer-2.5", name: "Composer 2.5 (Slow)" },
+      { id: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+    ]));
+  });
+
+  it("Should keep static composer-2.5-fast when live catalog only returns composer-2", async () => {
+    const list = vi.fn().mockResolvedValue({
+      items: [{
+        id: "composer-2",
+        displayName: "Composer 2",
+        parameters: [{ id: "fast", values: [{ value: "false" }, { value: "true" }] }],
+      }],
+    });
+    vi.doMock(CURSOR_SDK, () => ({
+      Cursor: { models: { list } },
+    }));
+
+    const { resolveCursorModels: resolveWithSdk } = await import("../../open-sse/services/cursorModels.js");
+    const result = await resolveWithSdk({ apiKey: "cursor-sdk-key" });
+
+    expect(result?.models).toEqual(expect.arrayContaining([
+      { id: "composer-2", name: "Composer 2 (Slow)" },
+      { id: "composer-2-fast", name: "Composer 2 Fast" },
+      { id: "composer-2.5", name: "Composer 2.5 (Slow)" },
+      { id: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+    ]));
+  });
+
+  it("Should merge static registry rows under a live-only catalog", () => {
+    expect(mergeCursorCatalogWithStatic([
+      { id: "composer-2", name: "Composer 2 (Slow)" },
+      { id: "composer-2-fast", name: "Composer 2 Fast" },
+    ])).toEqual(expect.arrayContaining([
+      { id: "composer-2", name: "Composer 2 (Slow)" },
+      { id: "composer-2-fast", name: "Composer 2 Fast" },
+      { id: "composer-2.5", name: "Composer 2.5 (Slow)" },
+      { id: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+    ]));
   });
 
   it("Should fetch models via Cursor SDK when only an API key is configured", async () => {
@@ -133,11 +171,13 @@ describe("Cursor live model catalog", () => {
 
     const { resolveCursorModels: resolveWithSdk } = await import("../../open-sse/services/cursorModels.js");
 
-    await expect(resolveWithSdk({
+    const result = await resolveWithSdk({
       apiKey: "cursor-sdk-key",
-    })).resolves.toEqual({
-      models: [{ id: "gpt-5.2", name: "GPT 5.2" }],
     });
+    expect(result?.models).toEqual(expect.arrayContaining([
+      { id: "gpt-5.2", name: "GPT 5.2" },
+      { id: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+    ]));
     expect(list).toHaveBeenCalledWith({ apiKey: "cursor-sdk-key" });
   });
 

@@ -198,7 +198,7 @@ npm start
 
 ### Localhost(默认)
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 → 仪表盘: http://localhost:3000
 → API: http://localhost:20128/v1

@@ -198,7 +198,7 @@ Consulta la [guía de integración de Cursor](integration/cursor.md) para detall
 
 ### Localhost (Por defecto)
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 → Dashboard: http://localhost:3000
 → API: http://localhost:20128/v1

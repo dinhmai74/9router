@@ -9,7 +9,7 @@ Get 9Router running in 5 minutes and start routing AI requests intelligently.
 ### 1. Install
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **Requirements:** Node.js 20+ ([Installation details](getting-started/installation.md))

@@ -493,7 +493,8 @@ export default function ModelSelectModal({
         models = models.filter(
           (m) =>
             m.name.toLowerCase().includes(query) ||
-            m.id.toLowerCase().includes(query)
+            m.id.toLowerCase().includes(query) ||
+            (m.value || "").toLowerCase().includes(query)
         );
         if (models.length === 0 && !providerNameMatches) return;
       }

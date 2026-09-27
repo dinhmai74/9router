@@ -34,7 +34,7 @@ npm --version
 Cài 9Router toàn cục để dùng ở bất kỳ đâu:
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **Khởi động 9Router:**
@@ -55,13 +55,13 @@ Cài trong project cụ thể:
 ```bash
 mkdir my-9router
 cd my-9router
-npm install 9router
+npm install @alexmai/9router
 ```
 
 **Khởi động 9Router:**
 
 ```bash
-npx 9router
+npx @alexmai/9router
 ```
 
 **Lợi ích:**
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # Then install again
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 ### Node.js Phiên bản quá cũ
@@ -372,7 +372,7 @@ pm2 save
 ### Phát triển cục bộ
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # Install
-npm install -g 9router
+npm install -g @alexmai/9router
 
 # Configure
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### Gỡ Global Installation
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g @alexmai/9router
 ```
 
 ### Xóa Data Directory

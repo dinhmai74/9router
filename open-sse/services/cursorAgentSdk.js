@@ -113,7 +113,7 @@ export function buildSdkPrompt(messages, { body, credentials } = {}) {
 const FAST_SUFFIX = "-fast";
 
 /** Base ids where bare route id means slow (fast=false) and `-fast` suffix means fast. */
-const FAST_SLOW_MODEL_BASE_IDS = new Set([
+export const CURSOR_FAST_SLOW_MODEL_BASE_IDS = new Set([
   "composer-2.5",
   "composer-2",
   "grok-4.6",
@@ -137,12 +137,12 @@ export function resolveSdkModelSelection(model) {
 
   if (modelId.endsWith(FAST_SUFFIX)) {
     const baseId = modelId.slice(0, -FAST_SUFFIX.length);
-    if (FAST_SLOW_MODEL_BASE_IDS.has(baseId)) {
+    if (CURSOR_FAST_SLOW_MODEL_BASE_IDS.has(baseId)) {
       return { id: baseId, params: buildFastSlowParams(baseId, true) };
     }
   }
 
-  if (FAST_SLOW_MODEL_BASE_IDS.has(modelId)) {
+  if (CURSOR_FAST_SLOW_MODEL_BASE_IDS.has(modelId)) {
     return { id: modelId, params: buildFastSlowParams(modelId, false) };
   }
 

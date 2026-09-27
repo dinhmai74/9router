@@ -34,7 +34,7 @@ npm --version
 どこからでも使用できるように9Routerをグローバルインストール:
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **9Routerを起動:**
@@ -55,13 +55,13 @@ npm install -g 9router
 ```bash
 mkdir my-9router
 cd my-9router
-npm install 9router
+npm install @alexmai/9router
 ```
 
 **9Routerを起動:**
 
 ```bash
-npx 9router
+npx @alexmai/9router
 ```
 
 **利点:**
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # 再度インストール
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 ### Node.jsバージョンが古すぎる
@@ -372,7 +372,7 @@ pm2 save
 ### ローカル開発
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # インストール
-npm install -g 9router
+npm install -g @alexmai/9router
 
 # 設定
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### グローバルインストールを削除
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g @alexmai/9router
 ```
 
 ### データディレクトリを削除

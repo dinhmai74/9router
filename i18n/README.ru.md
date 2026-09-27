@@ -70,7 +70,7 @@ Result: Never stop coding, minimal cost
 **1. Глобальная установка:**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 

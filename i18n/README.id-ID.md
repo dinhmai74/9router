@@ -68,7 +68,7 @@ Hasil: ngoding tanpa berhenti, biaya minimum
 **1. Install secara global:**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -887,7 +887,7 @@ Dashboard: `http://localhost:20128/dashboard`
 <summary><b>VPS / Cloud</b></summary>
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 PORT=20128 HOSTNAME=0.0.0.0 BASE_URL=https://your-domain.com 9router
 ```
 

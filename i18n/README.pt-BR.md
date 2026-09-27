@@ -76,7 +76,7 @@ Resultado: programe sem interrupções, com custo mínimo e economia de 20% a 40
 **1. Instale globalmente:**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 

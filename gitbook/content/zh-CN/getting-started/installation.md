@@ -34,7 +34,7 @@ npm --version
 全局安装,任何位置都能使用:
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **启动 9Router:**
@@ -55,13 +55,13 @@ npm install -g 9router
 ```bash
 mkdir my-9router
 cd my-9router
-npm install 9router
+npm install @alexmai/9router
 ```
 
 **启动 9Router:**
 
 ```bash
-npx 9router
+npx @alexmai/9router
 ```
 
 **优势:**
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # 然后重新安装
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 ### Node.js 版本过低
@@ -372,7 +372,7 @@ pm2 save
 ### 本地开发
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # 安装
-npm install -g 9router
+npm install -g @alexmai/9router
 
 # 配置
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### 移除全局安装
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g @alexmai/9router
 ```
 
 ### 移除数据目录

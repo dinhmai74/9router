@@ -74,7 +74,7 @@
 **1. ติดตั้งแบบ Global:**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 

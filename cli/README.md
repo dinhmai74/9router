@@ -40,11 +40,11 @@
 **Option 1 — npm (recommended for desktop):**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 
 # Or run directly with npx
-npx 9router
+npx @alexmai/9router
 ```
 
 **Option 2 — Docker (server/VPS):**

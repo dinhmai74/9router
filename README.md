@@ -76,7 +76,7 @@ Result: Never stop coding, minimal cost + 20-40% token savings via RTK
 **1. Install globally:**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -99,7 +99,7 @@ Claude Code/Codex/OpenClaw/Cursor/Cline Settings:
 
 **Alternative: run from source (this repository):**
 
-This repository package is private (`9router-app`), so source/Docker execution is the expected local development path.
+The root package is private (`9router-app`); only the CLI is published as `@alexmai/9router`. Source/Docker execution is the usual local development path.
 
 ```bash
 cp .env.example .env

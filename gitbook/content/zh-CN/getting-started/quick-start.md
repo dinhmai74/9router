@@ -9,7 +9,7 @@
 ### 1. 安装
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **要求:** Node.js 20+([安装详情](getting-started/installation.md))

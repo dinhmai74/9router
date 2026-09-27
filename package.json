@@ -1,10 +1,8 @@
 {
   "name": "9router-app",
-  "version": "0.5.91",
+  "version": "0.5.87",
+  "private": true,
   "description": "9Router web dashboard",
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "dev": "next dev --port 20127",
     "dev:webpack": "next dev --webpack --port 20127",
@@ -65,5 +63,6 @@
     "eslint-config-next": "16.1.6",
     "postcss": "^8.5.6",
     "tailwindcss": "^4"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

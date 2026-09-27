@@ -9,7 +9,7 @@ Run 9Router on your local machine for development and personal use.
 Install 9Router globally via npm:
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **Requirements:**
@@ -113,7 +113,7 @@ If you encounter permission errors during installation:
 
 ```bash
 # Use sudo (not recommended)
-sudo npm install -g 9router
+sudo npm install -g @alexmai/9router
 
 # Or fix npm permissions (recommended)
 mkdir ~/.npm-global

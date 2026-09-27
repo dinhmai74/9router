@@ -8,8 +8,10 @@
 
 import crypto from "crypto";
 import http2 from "http2";
+import { getModelsByProviderId } from "../config/providerModels.js";
 import { PROVIDER_OAUTH } from "../providers/index.js";
 import { resolveCursorSdkApiKey } from "./cursorSdkAuth.js";
+import { CURSOR_FAST_SLOW_MODEL_BASE_IDS } from "./cursorAgentSdk.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
 import { decodeMessage } from "../utils/cursorProtobuf.js";
 
@@ -70,7 +72,7 @@ export function normalizeCursorCatalogModels(models) {
       || id
     ).trim();
 
-    if (modelHasFastParameter(model)) {
+    if (modelHasFastParameter(model) || CURSOR_FAST_SLOW_MODEL_BASE_IDS.has(id)) {
       pushModel(id, `${baseName} (Slow)`);
       pushModel(`${id}-fast`, `${baseName} Fast`);
       continue;
@@ -80,6 +82,29 @@ export function normalizeCursorCatalogModels(models) {
   }
 
   return normalized;
+}
+
+/**
+ * Live Cursor catalogs are account-scoped and often omit static routes we still
+ * accept (e.g. composer-2.5-fast). Keep registry rows, let live names win on id clash.
+ */
+export function mergeCursorCatalogWithStatic(liveModels) {
+  const byId = new Map();
+  for (const model of getModelsByProviderId("cursor")) {
+    const id = typeof model?.id === "string" ? model.id.trim() : "";
+    if (!id) continue;
+    byId.set(id, { id, name: (model.name || id).trim() || id });
+  }
+  for (const model of liveModels || []) {
+    const id = typeof model?.id === "string" ? model.id.trim() : "";
+    if (!id) continue;
+    const existing = byId.get(id);
+    byId.set(id, {
+      id,
+      name: ((typeof model?.name === "string" && model.name) || existing?.name || id).trim() || id,
+    });
+  }
+  return [...byId.values()];
 }
 
 function extractCursorSdkModelItems(response) {
@@ -119,7 +144,9 @@ export function parseCursorUsableModels(payload) {
     models.push({ id, name });
   }
 
-  return models;
+  return normalizeCursorCatalogModels(
+    models.map((model) => ({ id: model.id, displayName: model.name })),
+  );
 }
 
 /**
@@ -252,8 +279,9 @@ export async function resolveCursorModels(credentials, options = {}) {
   }
 
   try {
-    const models = await fetchLiveCursorCatalog(credentials, options.signal, options.log);
-    if (!models?.length) return null;
+    const liveModels = await fetchLiveCursorCatalog(credentials, options.signal, options.log);
+    if (!liveModels?.length) return null;
+    const models = mergeCursorCatalogWithStatic(liveModels);
     catalogCache.set(key, { expiresAt: now + CACHE_TTL_MS, models });
     return { models };
   } catch (error) {

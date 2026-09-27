@@ -76,7 +76,7 @@ Result: Never stop coding, minimal cost + 20-40% token savings via RTK
 **1. Instálalo globalmente:**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 

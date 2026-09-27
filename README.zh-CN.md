@@ -74,7 +74,7 @@
 **1. 全局安装：**
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -97,7 +97,7 @@ Claude Code/Codex/OpenClaw/Cursor/Cline 设置：
 
 **替代方案：从源码运行（本仓库）：**
 
-本仓库的包是私有的（`9router-app`），所以源码/Docker 执行是预期的本地开发方式。
+根包为私有（`9router-app`）；仅 CLI 以 `@alexmai/9router` 发布。源码/Docker 是常用的本地开发方式。
 
 ```bash
 cp .env.example .env

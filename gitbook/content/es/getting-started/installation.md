@@ -34,7 +34,7 @@ npm --version
 Instala 9Router globalmente para usar desde cualquier lugar:
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 **Iniciar 9Router:**
@@ -55,13 +55,13 @@ Instala en un proyecto específico:
 ```bash
 mkdir my-9router
 cd my-9router
-npm install 9router
+npm install @alexmai/9router
 ```
 
 **Iniciar 9Router:**
 
 ```bash
-npx 9router
+npx @alexmai/9router
 ```
 
 **Beneficios:**
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # Luego instalar nuevamente
-npm install -g 9router
+npm install -g @alexmai/9router
 ```
 
 ### Versión de Node.js muy antigua
@@ -372,7 +372,7 @@ pm2 save
 ### Desarrollo local
 
 ```bash
-npm install -g 9router
+npm install -g @alexmai/9router
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # Instalar
-npm install -g 9router
+npm install -g @alexmai/9router
 
 # Configurar
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### Eliminar instalación global
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g @alexmai/9router
 ```
 
 ### Eliminar el directorio de datos
