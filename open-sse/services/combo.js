@@ -331,8 +331,12 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
         try { errorText = JSON.stringify(errorText); } catch { errorText = String(errorText); }
       }
 
-      // Check if should fallback to next model
-      const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
+      const hasNextModel = i < rotatedModels.length - 1;
+      let { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
+      if (!shouldFallback && hasNextModel) {
+        shouldFallback = true;
+        cooldownMs = 0;
+      }
 
       if (!shouldFallback) {
         log.warn("COMBO", `Model ${modelStr} failed (no fallback)`, { status: result.status });
