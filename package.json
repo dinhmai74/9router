@@ -1,7 +1,9 @@
 {
   "name": "9router-app",
   "version": "0.5.89",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "9Router web dashboard",
   "scripts": {
     "dev": "next dev --port 20127",
@@ -14,7 +16,10 @@
     "build:bun": "bun --bun next build --webpack",
     "start:bun": "bun ./.next/standalone/custom-server.js",
     "cli:pack": "npm --prefix cli run pack:cli",
-    "cli:publish": "npm --prefix cli run publish:cli"
+    "cli:publish": "npm --prefix cli run publish:cli",
+    "version:bump": "node scripts/bump-version.mjs patch",
+    "version:bump:minor": "node scripts/bump-version.mjs minor",
+    "version:bump:major": "node scripts/bump-version.mjs major"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.31",
