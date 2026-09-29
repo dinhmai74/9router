@@ -1,6 +1,6 @@
 {
-  "name": "9router-app",
-  "version": "0.5.89",
+  "name": "alexmai@9router",
+  "version": "0.5.90",
   "publishConfig": {
     "access": "public"
   },
