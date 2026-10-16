@@ -22,7 +22,10 @@ const nextConfig = {
   // it. Keeping it external preserves the real `import.meta.url` at runtime.
   // `@cursor/sdk` must stay external: it lazy-loads platform binaries and ships
   // `.d.ts.map` sidecars that webpack cannot parse when traced through open-sse.
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open", "@cursor/sdk"],
+  // @aws-sdk/credential-providers must stay external for the same class of reason: it reads
+  // ~/.aws/config and the SSO token cache from disk at runtime and resolves its credential
+  // plugins by dynamic require, neither of which survives bundling.
+  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open", "@cursor/sdk", "@aws-sdk/credential-providers"],
   turbopack: {
     root: tracingRoot
   },

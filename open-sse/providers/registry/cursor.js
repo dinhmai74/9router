@@ -27,6 +27,11 @@ export default {
       "User-Agent": "connect-es/1.6.1",
     },
     clientVersion: "3.12.17",
+    usage: {
+      url: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage",
+      planInfoUrl: "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo",
+      authUsageUrl: "https://api2.cursor.sh/auth/usage",
+    },
   },
   models: [
     { id: "default", name: "Auto (Server Picks)" },
@@ -68,5 +73,8 @@ export default {
       ideOAuthUnsupported: true,
       defaultRuntime: "cloud",
     },
+  },
+  features: {
+    usage: true,
   },
 };
