@@ -3,8 +3,8 @@ import { getCapabilitiesForModel } from "../../providers/capabilities.js";
 // Strip request params a given provider/model rejects upstream (e.g. HTTP 400).
 // Config-driven: add a rule instead of scattering `delete body.x` across executors.
 
-// Each rule: optional provider, regex match on model, list of params to drop.
-// A param is removed only when it is present (!== undefined).
+// Each rule: optional provider, optional host (upstream hostname), regex match on model,
+// list of params to drop. A param is removed only when it is present (!== undefined).
 const STRIP_RULES = [
   // All Claude models: temperature deprecated/rejected upstream (Anthropic 400). #1748
   { match: /claude/i, drop: ["temperature"] },
@@ -29,6 +29,14 @@ const STRIP_RULES = [
   // handled by reasoningContentInjector and are not listed here.
   { provider: "groq", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
   { provider: "mistral", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
+  // Mistral's request schema is strict (extra="forbid"): any unknown top-level field
+  // answers 422 extra_forbidden. A custom openai-compatible node pointed at Mistral
+  // carries a generated provider id, so the provider-scoped rules never match it —
+  // key this one on the upstream host so manually added models behave like the
+  // built-in provider. `thinking` is injected by applyThinking for model names that
+  // resolve to a native thinking format (e.g. deepseek) and Mistral rejects it;
+  // reasoning_effort is supported upstream and stays.
+  { host: "api.mistral.ai", drop: ["store", "thinking"] },
   { provider: "cerebras", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
   // OpenCode Go's relay rejects `response_format` for its deepseek family with HTTP
   // 400 — both json_schema and json_object — while glm / kimi / mimo / minimax /
@@ -54,10 +62,12 @@ function clampNumber(body, key, ceiling) {
 }
 
 // Remove unsupported params from body in place; returns body.
-export function stripUnsupportedParams(provider, model, body) {
+// `host` is the upstream hostname, used by rules that cannot key on provider id.
+export function stripUnsupportedParams(provider, model, body, host = null) {
   if (!model || !body || typeof body !== "object") return body;
   for (const rule of STRIP_RULES) {
     if (rule.provider && rule.provider !== provider) continue;
+    if (rule.host && rule.host !== host) continue;
     if (!matches(rule, model)) continue;
     for (const key of rule.drop || []) {
       if (body[key] !== undefined) delete body[key];

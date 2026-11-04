@@ -88,7 +88,13 @@ export class DefaultExecutor extends BaseExecutor {
       if (this.config.quirks?.dropClientMetadata) {
         delete transformed.client_metadata;
       }
-      stripUnsupportedParams(this.provider, model, transformed);
+      // Host-keyed strip rules (e.g. Mistral behind a custom openai-compatible node)
+      // cannot resolve from the provider id, so pass the upstream hostname along.
+      let upstreamHost = null;
+      try {
+        upstreamHost = new URL(this.buildUrl(model, stream, 0, credentials)).hostname;
+      } catch { /* best-effort: rules without a host still apply */ }
+      stripUnsupportedParams(this.provider, model, transformed, upstreamHost);
     }
 
     return injectReasoningContent({ provider: this.provider, model, body: transformed });
