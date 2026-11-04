@@ -230,12 +230,15 @@ describe("Cursor live model catalog", () => {
       providerSpecificData: { machineId: "machine-id" },
     };
 
-    await expect(resolveCursorModels(credentials)).resolves.toEqual({
-      models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }],
-    });
-    await expect(resolveCursorModels(credentials)).resolves.toEqual({
-      models: [{ id: "claude-4.6-opus", name: "Claude 4.6 Opus" }],
-    });
+    // The live catalog is merged under the static registry rows, so assert the live
+    // model is present rather than pinning the whole list.
+    const first = await resolveCursorModels(credentials);
+    expect(first.models).toEqual(expect.arrayContaining([
+      { id: "claude-4.6-opus", name: "Claude 4.6 Opus" },
+    ]));
+
+    // Second call is served from cache: no extra upstream request.
+    await expect(resolveCursorModels(credentials)).resolves.toEqual(first);
 
     expect(h2.calls).toHaveLength(1);
     expect(h2.calls[0].origin).toBe("https://agent.api5.cursor.sh");
