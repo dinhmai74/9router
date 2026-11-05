@@ -103,16 +103,23 @@ export class DefaultExecutor extends BaseExecutor {
       if (this.config.quirks?.dropClientMetadata) {
         delete transformed.client_metadata;
       }
+    }
+
+    // Injection runs before the strip rules so a provider that rejects reasoning
+    // fields can drop the placeholder it adds (Mistral behind a custom node).
+    const withReasoning = injectReasoningContent({ provider: this.provider, model, body: transformed });
+
+    if (withReasoning && typeof withReasoning === "object") {
       // Host-keyed strip rules (e.g. Mistral behind a custom openai-compatible node)
       // cannot resolve from the provider id, so pass the upstream hostname along.
       let upstreamHost = null;
       try {
         upstreamHost = new URL(this.buildUrl(model, stream, 0, credentials)).hostname;
       } catch { /* best-effort: rules without a host still apply */ }
-      stripUnsupportedParams(this.provider, model, transformed, upstreamHost);
+      stripUnsupportedParams(this.provider, model, withReasoning, upstreamHost);
     }
 
-    return injectReasoningContent({ provider: this.provider, model, body: transformed });
+    return withReasoning;
   }
 
   applyNousAttribution(model, body, stream, credentials) {

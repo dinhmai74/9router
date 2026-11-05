@@ -35,8 +35,9 @@ const STRIP_RULES = [
   // key this one on the upstream host so manually added models behave like the
   // built-in provider. `thinking` is injected by applyThinking for model names that
   // resolve to a native thinking format (e.g. deepseek) and Mistral rejects it;
-  // reasoning_effort is supported upstream and stays.
-  { host: "api.mistral.ai", drop: ["store", "thinking"] },
+  // reasoning_effort is supported upstream and stays. Assistant messages get the same
+  // treatment as the built-in provider: Mistral 422s on replayed `reasoning_content`.
+  { host: "api.mistral.ai", drop: ["store", "thinking"], dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
   { provider: "cerebras", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
   // NVIDIA NIM treats `reasoning` and `reasoning_content` as aliases for one
   // field; sending both makes its deserializer report a duplicate field. Keep
