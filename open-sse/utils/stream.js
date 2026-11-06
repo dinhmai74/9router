@@ -2,6 +2,7 @@ import { translateResponse, initState } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
 import { PROVIDERS } from "../config/providers.js";
 import { liftReasoningAliases } from "../translator/concerns/reasoning.js";
+import { normalizeContentFields } from "../translator/concerns/content.js";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE, ensureStreamToolCallIds } from "./streamHelpers.js";
@@ -185,6 +186,11 @@ export function createSSEStream(options = {}) {
 
               const idFixed = fixInvalidId(parsed);
 
+              // Some upstreams stream Anthropic-style content blocks
+              // (`delta.content: [{ type: "text", text }]`) instead of a string.
+              // Coerce before anything downstream reads or forwards the delta.
+              const contentNormalized = normalizeContentFields(parsed);
+
               // A fragment that opens a new tool-call index without an id breaks
               // strict OpenAI-compatible clients. Mint/reuse one before the
               // chunk reaches the client.
@@ -287,7 +293,7 @@ export function createSSEStream(options = {}) {
                 parsed.usage = filterUsageForFormat(buffered, FORMATS.OPENAI);
                 output = `data: ${JSON.stringify(parsed)}\n`;
                 injectedUsage = true;
-              } else if (idFixed || fieldsInjected || toolCallIdFixed || toolNameRestored) {
+              } else if (idFixed || fieldsInjected || toolCallIdFixed || toolNameRestored || contentNormalized) {
                 output = `data: ${JSON.stringify(parsed)}\n`;
                 injectedUsage = true;
               }
@@ -319,6 +325,10 @@ export function createSSEStream(options = {}) {
 
         const parsed = parseSSELine(trimmed, targetFormat);
         if (!parsed) continue;
+
+        // Same coercion as the passthrough branch: translators and the
+        // accumulation below both assume `delta.content` is a string.
+        normalizeContentFields(parsed);
 
         // Responses API same-format passthrough: preserve event framing + track terminal state
         const isOpenAIResponsesStream = targetFormat === FORMATS.OPENAI_RESPONSES;
