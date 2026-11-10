@@ -30,7 +30,7 @@ const nextConfig = {
   // undici must stay external too: webpack's vendored copy drops the per-request
   // `dispatcher` connect options (ecdhCurve) — the built server then RSTs on
   // DPI-shaped networks while the dev server (real undici) passes.
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open", "@aws-sdk/credential-providers", "wreq-js", "undici"],
+  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open", "@cursor/sdk", "@aws-sdk/credential-providers", "wreq-js", "undici"],
   turbopack: {
     root: tracingRoot
   },
