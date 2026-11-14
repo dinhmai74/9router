@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectRequiredCapabilities, reorderByCapabilities } from "../../open-sse/services/combo.js";
+import { detectRequiredCapabilities } from "../../open-sse/services/combo.js";
 
 describe("detectRequiredCapabilities", () => {
   it("text-only -> empty", () => {
@@ -47,32 +47,5 @@ describe("detectRequiredCapabilities", () => {
       { type: "input_image", image_url: "x" },
     ] }] });
     expect(r.has("vision")).toBe(true);
-  });
-});
-
-describe("reorderByCapabilities", () => {
-  it("no required -> unchanged", () => {
-    const models = ["a/x", "b/y"];
-    expect(reorderByCapabilities(models, new Set())).toBe(models);
-  });
-
-  it("floats vision-capable model to front, keeps fallback", () => {
-    // deepseek-chat = no vision; claude-sonnet = vision
-    const models = ["deepseek/deepseek-chat", "anthropic/claude-sonnet-4.6"];
-    const out = reorderByCapabilities(models, new Set(["vision"]));
-    expect(out[0]).toBe("anthropic/claude-sonnet-4.6");
-    expect(out).toContain("deepseek/deepseek-chat"); // not dropped
-    expect(out).toHaveLength(2);
-  });
-
-  it("keeps order when no model matches", () => {
-    const models = ["deepseek/deepseek-chat", "deepseek/deepseek-reasoner"];
-    const out = reorderByCapabilities(models, new Set(["vision"]));
-    expect(out).toBe(models);
-  });
-
-  it("single model -> unchanged", () => {
-    const models = ["a/x"];
-    expect(reorderByCapabilities(models, new Set(["vision"]))).toBe(models);
   });
 });

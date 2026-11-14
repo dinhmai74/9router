@@ -2,11 +2,10 @@
  * Capacity Adapter — global fallback pools of models per input-modality capability
  * (vision / pdf / audioInput / videoInput).
  *
- * The pool models are appended as extra fallback candidates behind whatever models
- * were already going to be tried (a combo's members, or a single target model).
- * combo.js's existing reorderByCapabilities then floats a capable pool model to the
- * front only when none of the original models can handle the request — so this
- * never overrides a combo that already has a member covering the capability.
+ * The pool models are prepended as priority candidates when the leading model (a
+ * combo's first member, or a single target model) cannot read what the request
+ * carries. The original models follow in declared order as fallback, so a combo
+ * only advances past its first member on a real failure.
  */
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 
@@ -84,16 +83,14 @@ function modelSatisfies(modelStr, requiredHard) {
   return requiredHard.every((c) => caps[c] === true);
 }
 
-// Prepend capacity-adapter models as priority candidates when NONE of the
-// original models (combo members, or the single target model) can satisfy the
+// Prepend capacity-adapter models as priority candidates when the FIRST model
+// (combo's leading member, or the single target model) cannot satisfy the
 // request's required capabilities. Adapter models go FIRST (priority); the
-// original models follow as fallback. Leaves `models` untouched when the
-// original list already covers it (combo.js's reorderByCapabilities handles
-// that case via autoSwitch).
+// original models follow in declared order as fallback.
 export function augmentModelsWithCapacityAdapter(models, requiredCapabilities, settings) {
   const hard = [...(requiredCapabilities || [])].filter((c) => HARD_CAPS.has(c));
   if (hard.length === 0 || !Array.isArray(models) || models.length === 0) return models;
-  if (models.some((m) => modelSatisfies(m, hard))) return models;
+  if (modelSatisfies(models[0], hard)) return models;
 
   const pool = getCapacityAdapterModels(settings).filter((m) => !models.includes(m) && modelSatisfies(m, hard));
   if (pool.length === 0) return models;

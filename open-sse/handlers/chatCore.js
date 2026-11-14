@@ -29,7 +29,7 @@ import { compressMessages, formatRtkLog } from "../rtk/index.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";
 import { compressWithPxpipe } from "../rtk/pxpipe.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
-import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
+import { stripUnsupportedModalities, parseImageLimit, trimImagesToLimit } from "../translator/concerns/modality.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../translator/concerns/toolCall.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
@@ -396,19 +396,21 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Most executors return their registry format. Cursor AgentService is an
   // exception: it is decoded by the executor into OpenAI-compatible output.
   let providerResponseFormat = targetFormat;
+  const executeArgs = {
+    model,
+    body: translatedBody,
+    stream,
+    credentials,
+    providerSessionId: sessionSeed,
+    clientTool,
+    signal: streamController.signal,
+    log,
+    proxyOptions,
+    providerOverrides,
+  };
+  const dispatch = () => executor.execute(executeArgs);
   try {
-    const result = await executor.execute({
-      model,
-      body: translatedBody,
-      stream,
-      credentials,
-      providerSessionId: sessionSeed,
-      clientTool,
-      signal: streamController.signal,
-      log,
-      proxyOptions,
-      providerOverrides,
-    });
+    const result = await dispatch();
     providerResponse = result.response;
     providerUrl = result.url;
     providerHeaders = result.headers;
@@ -489,6 +491,30 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       }
     } catch (e) {
       log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh threw: ${e.message}`);
+    }
+  }
+
+  // Image-count cap (e.g. Mistral/DeepSeek: "Total number of images exceeds the
+  // maximum allowed of 20", code 3051). The limit is read from the provider's own
+  // error text, so nothing is guessed; drop the oldest images and retry the same
+  // model once. A cap is request-scoped, so no other combo member can serve it.
+  if (!providerResponse.ok && providerResponse.status === HTTP_STATUS.BAD_REQUEST) {
+    let limitText = "";
+    try { limitText = await providerResponse.clone().text(); } catch { limitText = ""; }
+    const imageLimit = parseImageLimit(limitText);
+    if (imageLimit && trimImagesToLimit(translatedBody, finalFormat, imageLimit)) {
+      log?.info?.("MODALITY", `provider caps images at ${imageLimit}; trimmed oldest and retrying ${provider}/${model}`);
+      try {
+        const retry = await dispatch();
+        providerResponse = retry.response;
+        providerUrl = retry.url;
+        providerHeaders = retry.headers;
+        finalBody = retry.transformedBody;
+        providerResponseFormat = retry.responseFormat || targetFormat;
+        reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
+      } catch (retryErr) {
+        log?.warn?.("MODALITY", `image-cap retry failed: ${retryErr?.message || retryErr}`);
+      }
     }
   }
 

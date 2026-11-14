@@ -4,7 +4,6 @@
 
 import { checkFallbackError, formatRetryAfter } from "./accountFallback.js";
 import { unavailableResponse } from "../utils/error.js";
-import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { parseModel } from "./model.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
 import { peekStreamForContent, reconstructStream, isNoRetryFinish } from "./emptyFailover.js";
@@ -29,10 +28,6 @@ async function peekComboResponse(result, log) {
   });
   return { outcome: peeked.outcome, finishReason: peeked.finishReason, timedOut: peeked.timedOut, response };
 }
-
-// Hard capabilities = input modalities; missing one drops request data (e.g. image
-// stripped). Must be prioritized. Soft (e.g. search) only degrades a feature.
-const HARD_CAPS = new Set(["vision", "pdf", "audioInput", "videoInput"]);
 
 // Prefixes used when flattening tool turns into plain prose for panel models.
 const TOOL_CALL_PREFIX = "[Called tools: ";
@@ -79,29 +74,6 @@ function flattenToolHistory(messages) {
       }
       return msg;
     });
-}
-
-// Reorder combo models by capability fit. Stable; never drops a model (fallback intact).
-// Tier 0: satisfies all hard + all soft. Tier 1: all hard only. Tier 2: rest.
-export function reorderByCapabilities(models, required) {
-  if (!required || required.size === 0 || !Array.isArray(models) || models.length <= 1) return models;
-  const hard = [...required].filter((c) => HARD_CAPS.has(c));
-  const soft = [...required].filter((c) => !HARD_CAPS.has(c));
-
-  const tierOf = (m) => {
-    const slash = typeof m === "string" ? m.indexOf("/") : -1;
-    const provider = slash > 0 ? m.slice(0, slash) : "";
-    const model = slash > 0 ? m.slice(slash + 1) : m;
-    const caps = getCapabilitiesForModel(provider, model);
-    if (!hard.every((c) => caps[c] === true)) return 2;
-    return soft.every((c) => caps[c] === true) ? 0 : 1;
-  };
-
-  // Stable sort by tier (Array.prototype.sort is stable in modern engines).
-  return models
-    .map((m, i) => ({ m, i, t: tierOf(m) }))
-    .sort((a, b) => a.t - b.t || a.i - b.i)
-    .map((x) => x.m);
 }
 
 /**
@@ -343,7 +315,6 @@ export function isZeroContentResponse(data) {
  * @param {string} [options.comboName] - Name of the combo (for round-robin tracking)
  * @param {string} [options.comboStrategy] - Strategy: "fallback", "round-robin", or "smart"
  * @param {number|string} [options.comboStickyLimit=1] - Requests per combo model before switching
- * @param {boolean} [options.autoSwitch=true] - Capability auto-switching
  * @param {string|null} [options.sessionId=null] - Client session identifier for prompt cache retention
  * @param {string} [options.smartPolicy="smart"] - Policy: "smart" (adaptive ≥80%), "strict" (lock 1st model), "per-turn", or "custom"
  * @param {boolean} [options.sessionSticky=true] - Keep chosen model across session requests to retain prompt cache
@@ -359,7 +330,6 @@ export async function handleComboChat({
   comboName,
   comboStrategy,
   comboStickyLimit = 1,
-  autoSwitch = true,
   sessionId = null,
   smartPolicy = "smart",
   sessionSticky = true,
@@ -451,18 +421,6 @@ export async function handleComboChat({
     rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
   }
 
-  // Auto-switch: float models that satisfy the request's required capabilities to the front.
-  if (autoSwitch) {
-    const required = detectRequiredCapabilities(body);
-    if (required.size > 0) {
-      const reordered = reorderByCapabilities(rotatedModels, required);
-      if (reordered[0] !== rotatedModels[0]) {
-        log.info("COMBO", `auto-switch for [${[...required].join(",")}] → ${reordered[0]}`);
-      }
-      rotatedModels = reordered;
-    }
-  }
-  
   let lastError = null;
   let earliestRetryAfter = null;
   let lastStatus = null;

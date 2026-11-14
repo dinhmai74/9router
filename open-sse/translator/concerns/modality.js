@@ -166,3 +166,83 @@ export function stripUnsupportedModalities(body, sourceFormat, caps) {
   }
   return true;
 }
+
+const IMAGE_LIMIT_RE = /maximum allowed of (\d+)/i;
+
+export function parseImageLimit(errorText) {
+  const m = typeof errorText === "string" ? IMAGE_LIMIT_RE.exec(errorText) : null;
+  const n = m ? Number.parseInt(m[1], 10) : 0;
+  return n > 0 ? n : null;
+}
+
+function imageGroups(body, sourceFormat) {
+  const groups = [];
+  const addMessages = (arr, capOf) => {
+    if (!Array.isArray(arr)) return;
+    for (const item of arr) {
+      if (Array.isArray(item?.images)) groups.push({ item, key: "images", capOf: () => "vision" });
+      if (Array.isArray(item?.content)) groups.push({ item, key: "content", capOf });
+    }
+  };
+  const addParts = (contents) => {
+    if (!Array.isArray(contents)) return;
+    for (const c of contents) {
+      if (Array.isArray(c?.parts)) {
+        groups.push({ item: c, key: "parts", capOf: (p) => capForMime(p?.inlineData?.mimeType || p?.fileData?.mimeType) });
+      }
+    }
+  };
+
+  switch (sourceFormat) {
+    case FORMATS.CLAUDE:
+      addMessages(body.messages, capForClaudeBlock);
+      break;
+    case FORMATS.OPENAI_RESPONSES:
+    case FORMATS.OPENAI_RESPONSE:
+    case FORMATS.CODEX:
+      addMessages(body.input, (b) => (b?.type === "input_image" ? "vision" : null));
+      break;
+    case FORMATS.GEMINI:
+    case FORMATS.GEMINI_CLI:
+    case FORMATS.VERTEX:
+      addParts(body.contents);
+      break;
+    case FORMATS.ANTIGRAVITY:
+      addParts(body?.request?.contents);
+      break;
+    default:
+      addMessages(body.messages, capForOpenAIBlock);
+  }
+  return groups;
+}
+
+export function trimImagesToLimit(body, sourceFormat, limit) {
+  if (!body || !(limit > 0)) return false;
+
+  const groups = imageGroups(body, sourceFormat);
+  const isImage = (g, b) => g.capOf(b) === "vision";
+
+  let total = 0;
+  for (const g of groups) for (const b of g.item[g.key]) if (isImage(g, b)) total++;
+  if (total <= limit) return false;
+
+  let toDrop = total - limit;
+  for (const g of groups) {
+    if (toDrop <= 0) break;
+    const kept = [];
+    let dropped = 0;
+    for (const b of g.item[g.key]) {
+      if (toDrop > 0 && isImage(g, b)) {
+        toDrop--;
+        dropped++;
+        continue;
+      }
+      kept.push(b);
+    }
+    if (dropped === 0) continue;
+    const text = `[${dropped} earlier image(s) omitted: provider accepts at most ${limit}]`;
+    kept.push(g.key === "parts" ? { text } : { type: "text", text });
+    g.item[g.key] = kept;
+  }
+  return true;
+}
