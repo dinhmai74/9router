@@ -74,7 +74,6 @@ const {
   waitForPidsExit,
 } = require("./src/cli/utils/launcherProcess");
 const { ensureSqliteRuntime, buildEnvWithRuntime } = require("./hooks/sqliteRuntime");
-const { ensureTrayRuntime } = require("./hooks/trayRuntime");
 const args = process.argv.slice(2);
 
 // Subcommands (`9router xai video …`) run against an already-running gateway
@@ -108,9 +107,6 @@ if (args[0] === "connect" || args[0] === "show") {
 // so the server can resolve them via NODE_PATH. Best-effort — sql.js is required,
 // better-sqlite3 is optional. Logs to stderr only on failure.
 try { ensureSqliteRuntime({ silent: true }); } catch {}
-
-// Self-heal tray runtime (systray for macOS/Linux only). Windows skipped.
-try { ensureTrayRuntime({ silent: true }); } catch {}
 
 // Configuration constants
 const APP_NAME = pkg.name; // Use from package.json
@@ -699,11 +695,6 @@ function startServer(updatePromise) {
     bootSpinner.stop();
     removePidRecordIfOwner(launcherPidFile, process.pid);
     try {
-      // Kill tray if running
-      try {
-        const { killTray } = require("./src/cli/tray/tray");
-        killTray();
-      } catch (e) { }
       // Kill MIT server (privileged process) via PID file
       killProxyByPidFile();
       // Kill cloudflared/tailscale via PID file (only this app's tunnel)
@@ -745,30 +736,9 @@ function startServer(updatePromise) {
     setTimeout(() => process.exit(0), 100);
   });
 
-  // Initialize tray icon (runs alongside TUI)
-  const initTrayIcon = (callbacks = {}) => {
-    try {
-      const { initTray } = require("./src/cli/tray/tray");
-      initTray({
-        port,
-        onQuit: () => {
-          isShuttingDown = true;
-          console.log("\n👋 Shutting down from tray...");
-          cleanup();
-          setTimeout(() => process.exit(0), 100);
-        },
-        onOpenDashboard: () => openBrowser(url),
-        ...callbacks
-      });
-    } catch (err) {
-      // Tray not available - continue without it
-      if (typeof callbacks.onError === "function") callbacks.onError(err);
-    }
-  };
-
-  // Tray-only mode: no TUI, just tray icon
+  // Background mode: no TUI, no tray icon
   if (trayMode) {
-    // Ignore SIGHUP so macOS terminal close doesn't kill the background tray process
+    // Ignore SIGHUP so macOS terminal close doesn't kill the background process
     process.removeAllListeners("SIGHUP");
     process.on("SIGHUP", () => {});
 
@@ -778,33 +748,19 @@ function startServer(updatePromise) {
     bootSpinner.start();
     waitServerReady(port).then(() => {
       bootSpinner.stop();
-      // Only claim the tray is running once the tray process actually became
-      // ready. Reporting it up front hid every failure (missing
-      // libappindicator, EACCES, wrong architecture) behind a success message.
-      initTrayIcon({
-        onReady: () => {
-          console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
-          console.log("   Right-click tray icon to open dashboard or quit.\n");
-        },
-        onError: (err) => {
-          console.log("\n⚠️  No tray icon — the server keeps running.");
-          if (err?.message) console.log(`   ${err.message.split("\n").join("\n   ")}`);
-          console.log(`   Dashboard: http://${displayHost}:${port}\n`);
-        }
-      });
+      console.log(`\n💡 Router is now running in the background. Close this terminal if you want.`);
+      console.log(`   Dashboard: http://${displayHost}:${port}\n`);
     });
 
     return;
   }
 
-  // Wait for server to be ready, then show interface menu loop + tray
+  // Wait for server to be ready, then show interface menu loop
   bootSpinner.start();
   waitServerReady(port).then(async () => {
     bootSpinner.stop();
     // Resolve parallel update check (already running); don't block server start on it.
     const latestVersion = await latestVersionPromise;
-    // Start tray icon alongside TUI
-    initTrayIcon();
 
     try {
       while (true) {
@@ -844,21 +800,21 @@ function startServer(updatePromise) {
 
           if (process.platform === "darwin") {
             // macOS: keep current process alive — spawning a detached child puts
-            // it outside the login session so NSStatusItem silently fails.
+            // it outside the login session, so it dies with the terminal.
             process.removeAllListeners("SIGHUP");
             process.on("SIGHUP", () => {});
 
-            console.log(`\n⏳ Switching to tray mode... (icon already visible in menu bar)`);
-            console.log(`🔔 9Router is running in tray (PID: ${process.pid})`);
+            console.log(`\n⏳ Switching to background mode...`);
+            console.log(`🔔 9Router is running in background (PID: ${process.pid})`);
             console.log(`   Server: http://${displayHost}:${port}`);
-            console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
+            console.log(`\n💡 You can close this terminal. Stop it with: kill ${process.pid}\n`);
 
-            // Tray already init'd at startup — just keep event loop alive.
+            // Just keep the event loop alive.
             return;
           }
 
-          // Windows/Linux: spawn detached bgProcess (systray works fine in child)
-          console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
+          // Windows/Linux: spawn detached bgProcess
+          console.log(`\n⏳ Starting background process...`);
 
           const bgProcess = spawn(process.execPath, [__filename, "--tray", "--skip-update", "-p", port.toString()], {
             detached: true,
@@ -870,7 +826,7 @@ function startServer(updatePromise) {
 
           console.log(`🔔 9Router is now running in background (PID: ${bgProcess.pid})`);
           console.log(`   Server: http://${displayHost}:${port}`);
-          console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
+          console.log(`\n💡 You can close this terminal. Stop it with: kill ${bgProcess.pid}\n`);
 
           // cleanup() kills server so bgProcess can claim the port fresh
           cleanup();
