@@ -172,7 +172,7 @@ Options:
   -H, --host <host>   Host to bind (default: ${DEFAULT_HOST})
   -n, --no-browser    Don't open browser automatically
   -l, --log           Show server logs (default: hidden)
-  -t, --tray          Run in system tray mode (background)
+  -t, --tray          Run in background mode (no TUI)
   --skip-update       Skip auto-update check
   -h, --help          Show this help message
   -v, --version       Show version
@@ -193,7 +193,7 @@ Commands:
   }
 }
 
-// Auto-relaunch after update: detached process has no TTY → fallback to tray
+// Auto-relaunch after update: detached process has no TTY → fallback to background mode
 if (skipUpdate && !trayMode && !process.stdin.isTTY) {
   trayMode = true;
   process.env.TRAY_MODE = "1";
@@ -621,7 +621,7 @@ async function showInterfaceMenu(latestVersion) {
   menuItems.push(
     { label: "Web UI (Open in Browser)", icon: "🌐" },
     { label: "Terminal UI (Interactive CLI)", icon: "💻" },
-    { label: "Hide to Tray (Background)", icon: "🔔" },
+    { label: "Run in Background", icon: "🔔" },
     { label: "Exit", icon: "🚪" }
   );
 
@@ -708,7 +708,7 @@ function startServer(updatePromise) {
     } catch (e) { }
   }
 
-  // Suppress all errors during shutdown (systray lib throws JSON parse errors)
+  // Suppress all errors during shutdown
   let isShuttingDown = false;
   process.on("uncaughtException", (err) => {
     if (isShuttingDown) return;
